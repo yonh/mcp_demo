@@ -37,6 +37,23 @@ def mcp_tool_to_openai_tool(mcp_tool: Any) -> Dict[str, Any]:
     }
 
 
+# ANSI Color Codes
+class Colors:
+    HEADER = "\033[95m"
+    BLUE = "\033[94m"
+    CYAN = "\033[96m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    RED = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+
+
+def print_colored(text: str, color: str, end: str = "\n"):
+    print(f"{color}{text}{Colors.ENDC}", end=end)
+
+
 async def run_agent_loop():
     # 1. Start MCP Server
     server_params = StdioServerParameters(
@@ -48,7 +65,7 @@ async def run_agent_loop():
             await session.initialize()
 
             # 2. Dynamic Tool Discovery
-            print("--- Agent Startup ---")
+            print_colored("--- Agent Startup ---", Colors.HEADER)
             print("Discovering tools via MCP...")
             tools_response = await session.list_tools()
             mcp_tools = tools_response.tools
@@ -65,31 +82,62 @@ async def run_agent_loop():
                     "role": "system",
                     "content": (
                         "You are a specialized database administrator agent. "
+                        "Any response must translate to Chinese. "
                         "You ONLY answer questions related to database operations, SQL, and data analysis. "
-                        "If a user asks about other topics (e.g., weather, general knowledge, jokes), "
-                        "politely decline and remind them that you are a database tool. "
-                        "You have access to tools to list tables and execute SQL queries. "
-                        "Always use the provided tools to verify data before answering."
+                        "If a user asks about other topics, politely decline. "
+                        "\n\n"
+                        "# CRITICAL RULES FOR TOOL USAGE:\n"
+                        "1. When you need to call a tool, you MUST use the tool_calls mechanism provided by the API.\n"
+                        "2. NEVER write JSON manually in your response to simulate a tool call.\n"
+                        "3. NEVER say 'I will call X tool' without actually calling it.\n"
+                        "\n"
+                        "# REASONING FORMAT (ReAct):\n"
+                        "Before taking any action, output your thought process in this format:\n"
+                        "\n"
+                        "[Thought]\n"
+                        "Your reasoning here (what you understand, what you plan to do).\n"
+                        "\n"
+                        "Then:\n"
+                        "- If you need data from tools: STOP here and call the tool (do NOT add any text after the thought).\n"
+                        "- If you already have enough information: Provide your answer after the blank line.\n"
+                        "\n"
+                        "# EXAMPLE 1 (Need to call tool):\n"
+                        "User: Show me tables in db1\n"
+                        "Assistant:\n"
+                        "[Thought]\n"
+                        "Your reasoning here (what you understand, what you plan to do)\n"
+                        # "User wants to see tables. I need to call list_tables.\n"
+                        "\n"
+                        "[Then call list_tables tool - DO NOT write anything else]\n"
+                        "\n"
+                        "# EXAMPLE 2 (Already have data):\n"
+                        "User: What did you find?\n"
+                        "Assistant:\n"
+                        "[Thought]\n"
+                        "I already retrieved the table list in the previous step.\n"
+                        "\n"
+                        "The database contains: users, orders, products.\n"
                     ),
                 }
             ]
 
-            print("\n" + "="*50)
-            print("🤖 DB Agent V4 Online")
+            print("\n" + "=" * 50)
+            print_colored("🤖 DB Agent V4 Online (Explicit ReAct Mode)", Colors.CYAN)
             print(f"Connected to DBs:\n1. {DB1_PATH}\n2. {DB2_PATH}")
-            print("Type 'exit' or 'quit' to stop.")
-            print("="*50 + "\n")
+            print("Type 'exit', 'quit', or 'bye' to stop.")
+            print("=" * 50 + "\n")
 
             while True:
                 try:
-                    user_input = input("\nUser: ").strip()
+                    # User Input (Green)
+                    user_input = input(f"{Colors.GREEN}User: {Colors.ENDC}").strip()
                 except EOFError:
                     break
 
                 if not user_input:
                     continue
-                
-                if user_input.lower() in ["exit", "quit"]:
+
+                if user_input.lower() in ["exit", "quit", "bye"]:
                     print("Goodbye!")
                     break
 
@@ -97,7 +145,7 @@ async def run_agent_loop():
 
                 # Agent Execution Loop (Handle Tool Calls)
                 while True:
-                    print(".", end="", flush=True) # Thinking indicator
+                    # print(".", end="", flush=True) # Thinking indicator removed in favor of explicit thoughts
                     try:
                         response = client.chat.completions.create(
                             model=MODEL_NAME,
@@ -106,20 +154,63 @@ async def run_agent_loop():
                             tool_choice="auto",
                         )
                     except Exception as e:
-                        print(f"\nError calling LLM: {e}")
+                        print_colored(f"\nError calling LLM: {e}", Colors.RED)
                         return
 
                     response_message = response.choices[0].message
                     messages.append(response_message)
 
+                    content = response_message.content
+                    if content:
+                        # Check if it contains a thought
+                        if "[Thought]" in content:
+                            # Split by double newline or look for pattern
+                            # Expected format: "[Thought]\nReasoning here...\n\nActual response"
+                            lines = content.split("\n")
+                            thought_lines = []
+                            response_lines = []
+                            in_thought = False
+                            thought_ended = False
+
+                            for line in lines:
+                                if line.strip() == "[Thought]":
+                                    in_thought = True
+                                    thought_lines.append(line)
+                                elif in_thought and not thought_ended:
+                                    if line.strip() == "":
+                                        # Empty line marks end of thought
+                                        thought_ended = True
+                                    else:
+                                        thought_lines.append(line)
+                                else:
+                                    response_lines.append(line)
+
+                            # Print Thought in Yellow
+                            if thought_lines:
+                                print_colored(
+                                    f"\n{chr(10).join(thought_lines)}", Colors.YELLOW
+                                )
+
+                            # Print the rest (if any) in Cyan
+                            if response_lines and any(
+                                line.strip() for line in response_lines
+                            ):
+                                print_colored(
+                                    f"\n{chr(10).join(response_lines).strip()}",
+                                    Colors.CYAN,
+                                )
+                        else:
+                            print_colored(f"\nAssistant: {content}", Colors.CYAN)
+
                     if response_message.tool_calls:
-                        # print(f"\n[Tool Calls]: {len(response_message.tool_calls)}")
-                        
                         for tool_call in response_message.tool_calls:
                             tool_name = tool_call.function.name
                             tool_args = json.loads(tool_call.function.arguments)
-                            
-                            print(f"\n[Action] {tool_name}({tool_args})")
+
+                            # Tool Call (Magenta)
+                            print_colored(
+                                f"\n[Action] {tool_name}({tool_args})", Colors.HEADER
+                            )
 
                             try:
                                 result = await session.call_tool(
@@ -131,7 +222,16 @@ async def run_agent_loop():
                             except Exception as e:
                                 tool_output_text = f"Error: {str(e)}"
 
-                            # print(f"[Result] {tool_output_text[:100]}...")
+                            # Tool Result (Green - Observation in ReAct)
+                            # Truncate if too long
+                            display_output = (
+                                tool_output_text[:300] + "..."
+                                if len(tool_output_text) > 300
+                                else tool_output_text
+                            )
+                            print_colored(
+                                f"[Observation] {display_output}", Colors.GREEN
+                            )
 
                             messages.append(
                                 {
@@ -141,11 +241,21 @@ async def run_agent_loop():
                                     "content": tool_output_text,
                                 }
                             )
-                        # Continue loop to send tool outputs back to LLM
+                        # Continue loop to let LLM see the tool output and decide next step
                     else:
-                        # Final response from LLM
-                        print(f"\n\nAssistant: {response_message.content}")
+                        # No tool calls, and we already printed the content above.
+                        # Save conversation history for debugging
+                        with open("messages.json", "w") as f:
+                            json.dump(
+                                messages,
+                                f,
+                                indent=2,
+                                default=lambda o: o.model_dump()
+                                if hasattr(o, "model_dump")
+                                else str(o),
+                            )
                         break
+
 
 if __name__ == "__main__":
     try:
