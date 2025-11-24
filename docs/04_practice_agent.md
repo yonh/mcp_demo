@@ -84,3 +84,29 @@ while True:
 ## 3. 总结
 `client_v2.py` 虽然使用 Mock LLM，但其**骨架**与最先进的 AutoGPT 或 LangChain Agent 完全一致。
 它证明了：只要有一个能根据 Context 做决策的大脑，配合 MCP 提供的标准手脚，我们就能构建出解决复杂问题的智能体。
+
+## 5. 终极进化：接入真实大脑 (Client V3)
+
+在 `client_v3.py` 中，我们完成了最后一步：用 `OpenAI API` 替换了 `mock_llm_router`。
+
+### 5.1 关键胶水层：Schema 转换
+MCP 的工具定义与 OpenAI 的格式略有不同，我们需要一个转换器：
+
+```python
+def mcp_tool_to_openai_tool(mcp_tool):
+    return {
+        "type": "function",
+        "function": {
+            "name": mcp_tool.name,
+            "description": mcp_tool.description,
+            "parameters": mcp_tool.inputSchema # 直接复用 JSON Schema
+        }
+    }
+```
+
+### 5.2 真正的智能
+接入真实 LLM 后，Agent 不再依赖我们写的 `if` 规则。
+- 你可以问它：“对比一下这两个库，告诉我哪个表是多余的？”
+- 你甚至可以骗它：“这两个库是一样的”
+
+LLM 会根据工具返回的真实数据（Observation），结合它的逻辑推理能力，给出灵活的回答。这就是 **General Purpose Agent** 的雏形。
