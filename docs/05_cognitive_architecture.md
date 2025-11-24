@@ -49,5 +49,42 @@ ReAct 强制模型遵循以下循环：
     *   我们只需要给工具，模型会自动在内部进行多轮推演，然后直接给出最终的 Action 或 Answer。
 *   **影响**: 这将极大简化 Agent 的开发（`client_v2.py` 里的 `mock_llm_router` 逻辑将变得更简单，甚至不需要），但可能会降低可解释性（我们不知道它在黑盒里想了什么）。
 
-## 4. 总结
-我们在文档中探讨的 ReAct 模式，是当前构建可靠 Agent 的**必修课**。即使未来推理模型普及，理解“思考即计算”的原理，对于优化 Agent 的性能依然至关重要。
+
+## 4. 实战中的推理流派：Implicit vs Explicit vs Native
+
+在构建 Agent 时，我们经常面临一个选择：**要不要让 LLM 把思考过程打印出来？**
+目前业界主要有三种流派：
+
+### 4.1 隐式推理 (Implicit Reasoning)
+这是目前大多数 Tool Use API (如 OpenAI Function Calling) 的默认模式。
+*   **机制**：LLM 内部进行推理，直接输出 `tool_calls` JSON。
+*   **优点**：
+    *   **速度快**：少生成了几百个 Token 的思考文本。
+    *   **省钱**：Token 消耗少。
+*   **缺点**：
+    *   **黑盒**：Agent 为什么删错了表？为什么参数填错了？完全无法调试。
+    *   **鲁棒性差**：没有“三思而后行”，容易产生幻觉。
+*   **适用场景**：简单、确定性高的任务（如“查询天气”）。
+
+### 4.2 显式推理 (Explicit Reasoning / ReAct)
+这是我们推荐的**工程最佳实践**，也是 `client_v2.py` (Mock) 和即将升级的 `client_v4.py` 采用的模式。
+*   **机制**：通过 System Prompt 强制要求 LLM 在行动前输出一段 `Thought`。
+    *   Prompt: *"Before calling any tool, you must output a short 'Thought' explaining your reasoning."*
+*   **优点**：
+    *   **可解释性强**：用户能看到 Agent 的思考路径，建立了信任。
+    *   **自我纠错**：LLM 在“自言自语”的过程中，往往能发现逻辑漏洞并自我修正（Rubber Duck Effect）。
+*   **缺点**：增加了延迟和 Token 成本。
+*   **适用场景**：复杂任务、涉及数据修改的高风险操作。
+
+### 4.3 原生推理 (Native Reasoning / o1 / R1)
+这是 2024/2025 年的新趋势，代表模型是 OpenAI o1 和 DeepSeek R1。
+*   **机制**：模型经过强化学习训练，**内置**了极深度的 CoT 思考链。
+*   **现状**：
+    *   **API 限制**：目前许多推理模型的 API 会**隐藏**思考过程（只返回最终结果），或者对 Tool Calling 的支持尚不成熟（如 o1-preview）。
+    *   **未来**：随着模型进化，Native Reasoning 将成为标配，届时我们可能不再需要手动 Prompting ReAct，因为模型“天生”就会深思熟虑。
+
+---
+
+## 5. 总结
+在当前阶段（2025），**显式推理 (Explicit ReAct)** 依然是构建高可靠 Agent 的首选方案。它在“黑盒的效率”和“白盒的智能”之间取得了最好的平衡。
+

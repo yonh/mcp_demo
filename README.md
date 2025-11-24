@@ -6,10 +6,11 @@
 
 | 文件 | 说明 | 进化阶段 |
 | :--- | :--- | :--- |
-| `server.py` | **MCP Server**。基于 `FastMCP`，暴露了 `list_tables` 工具。 | 核心组件 |
+| `server.py` | **MCP Server**。基于 `FastMCP`，暴露了 `list_tables` 和 `run_sql` 工具。 | 核心组件 |
 | `client.py` | **Client V1 (MVP)**。硬编码调用逻辑，验证通路。 | Phase 1 |
 | `client_v2.py` | **Client V2 (Mock Agent)**。实现了 ReAct 循环和动态工具发现，使用模拟大脑。 | Phase 2 |
 | `client_v3.py` | **Client V3 (Real Agent)**。接入 OpenAI API，真正的智能体。 | Phase 4 |
+| `client_v4.py` | **Client V4 (Interactive)**。支持自由对话，专注于数据库操作。 | Phase 6.5 |
 | `create_dummy_dbs.py` | 测试数据生成脚本。 | 辅助工具 |
 | `docs/` | **[学习文档](./docs/README.md)**。详细的技术原理和复盘。 | 文档 |
 
@@ -65,6 +66,20 @@ export OPENAI_BASE_URL="http://localhost:11434/v1"
 export OPENAI_API_KEY="ollama" # 任意非空值
 python3 client_v3.py
 ```
+
+#### 🔵 阶段四：Interactive Agent (自由对话)
+支持持续对话，带有“数据库专家”的人设约束。
+```bash
+export OPENAI_API_KEY="..."
+python3 client_v4.py
+```
+**交互示例**:
+> User: 帮我看看 test_db_1 里有哪些表？
+> Assistant: [调用 list_tables] 发现了 users 和 orders 表。
+> User: 好的，把 users 表删了吧。
+> Assistant: [调用 run_sql] 已删除。
+> User: 讲个笑话。
+> Assistant: 抱歉，我只负责数据库操作。
 
 ## 📚 深入学习
 
