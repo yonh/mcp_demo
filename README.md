@@ -6,11 +6,12 @@
 
 | 文件 | 说明 | 进化阶段 |
 | :--- | :--- | :--- |
-| `server.py` | **MCP Server**。基于 `FastMCP`，暴露了 `list_tables` 和 `run_sql` 工具。 | 核心组件 |
+| `server.py` | **MCP Server**。基于 `FastMCP`，暴露了 `list_tables`、`run_sql` 和 `run_python` 工具。 | 核心组件 |
 | `client.py` | **Client V1 (MVP)**。硬编码调用逻辑，验证通路。 | Phase 1 |
 | `client_v2.py` | **Client V2 (Mock Agent)**。实现了 ReAct 循环和动态工具发现，使用模拟大脑。 | Phase 2 |
 | `client_v3.py` | **Client V3 (Real Agent)**。接入 OpenAI API，真正的智能体。 | Phase 4 |
-| `client_v4.py` | **Client V4 (Interactive)**。支持自由对话，专注于数据库操作。 | Phase 6.5 |
+| `client_v4.py` | **Client V4 (Interactive + ReAct)**。支持自由对话，带彩色 UI，专注于数据库操作。 | Phase 6.5 |
+| `client_v5.py` | **Client V5 (Code Execution)**。新增代码执行能力，Agent 可以写 Python 代码解决问题。 | Phase 8 |
 | `create_dummy_dbs.py` | 测试数据生成脚本。 | 辅助工具 |
 | `docs/` | **[学习文档](./docs/README.md)**。详细的技术原理和复盘。 | 文档 |
 
@@ -108,6 +109,25 @@ User: 查看 test_db_1 的表
 
 Assistant: 数据库中有 3 个表：users, orders, products。
 ```
+
+#### 🟣 阶段五：Code Execution Agent (动态编程)
+支持代码执行，Agent 可以写 Python 代码解决各种问题。
+```bash
+export OPENAI_API_KEY="..."
+python3 client_v5.py
+```
+**交互示例**:
+> User: 计算 123 * 456
+> [Thought] 用户想计算乘法，我可以用 run_python 工具。
+> [Action] run_python(code="print(123 * 456)")
+> [Observation] 56088
+> Assistant: 计算结果是 56088。
+
+**更多能力**：
+- 数据处理：生成斐波那契数列
+- 字符串操作：文本反转、大小写转换
+- 网页抓取：(需要安装 requests 库)
+- 数据分析：(需要安装 pandas 库)
 
 ## 📚 深入学习
 

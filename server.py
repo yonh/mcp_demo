@@ -1,6 +1,9 @@
 from mcp.server.fastmcp import FastMCP
 import sqlite3
 from typing import List
+import io
+import sys
+from contextlib import redirect_stdout
 
 # Initialize FastMCP server
 mcp = FastMCP("sqlite-explorer")
@@ -46,6 +49,29 @@ def run_sql(database_path: str, query: str) -> str:
         return result
     except Exception as e:
         return f"Error executing query: {str(e)}"
+
+@mcp.tool()
+def run_python(code: str) -> str:
+    """
+    Execute Python code and return stdout.
+    WARNING: No sandbox. For testing only.
+    
+    Args:
+        code: Python code to execute
+    
+    Returns:
+        stdout output or error message
+    """
+    # Capture stdout
+    output_buffer = io.StringIO()
+    
+    try:
+        with redirect_stdout(output_buffer):
+            exec(code, {"__builtins__": __builtins__})
+        output = output_buffer.getvalue()
+        return output if output else "Code executed successfully (no output)"
+    except Exception as e:
+        return f"Error: {type(e).__name__}: {str(e)}"
 
 if __name__ == "__main__":
     # Run the server

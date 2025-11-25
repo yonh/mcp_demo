@@ -29,5 +29,11 @@
 - ReAct 模式：学术界的事实标准
 - OpenAI o1 与推理模型的未来
 
+### [06. 实战篇 (三)：Code-as-Action - 从工具调用者到程序员](./06_code_as_action.md)
+- 为什么需要代码执行能力？
+- 实现方案演进：exec() → Docker → E2B
+- MVP 实现与安全性考虑
+- 未来升级路径
+
 ---
 *本文档由 Antigravity 辅助生成，旨在帮助开发者理解现代 Agent 架构。*
